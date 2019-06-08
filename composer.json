@@ -1,0 +1,22 @@
+{
+    "name": "chrisharrison/lock",
+    "description": "Avoid simultaneous execution of PHP code by first gaining a lock.",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Chris Harrison",
+            "email": "c.harrison1988@gmail.com"
+        }
+    ],
+    "require": {
+        "php": "^7.2",
+        "chrisharrison/clock": "^1.0",
+        "phpunit/phpunit": "^8.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "ChrisHarrison\\Lock\\": "src/"
+        }
+    }
+}
