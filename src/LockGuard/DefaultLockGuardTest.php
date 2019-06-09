@@ -1,20 +1,22 @@
 <?php
 
-// @codingStandardsIgnoreFile
-
 declare(strict_types=1);
 
 namespace ChrisHarrison\Lock\Guard;
 
 use ChrisHarrison\Clock\FrozenClock;
 use ChrisHarrison\Lock\Lock;
+use ChrisHarrison\Lock\LockAttempt;
 use ChrisHarrison\Lock\LockDriver\InMemoryLockDriver;
+use ChrisHarrison\Lock\LockFailed;
+use ChrisHarrison\Lock\LockGained;
+use ChrisHarrison\Lock\LockGuard\DefaultLockGuard;
 use ChrisHarrison\Lock\LockInspector\DefaultLockInspector;
 use const DATE_RFC3339;
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
 
-final class LockGuardTest extends TestCase
+final class DefaultLockGuardTest extends TestCase
 {
     private function now(): DateTimeImmutable
     {
@@ -34,14 +36,18 @@ final class LockGuardTest extends TestCase
     private function sut(?array $options = [])
     {
         $useOptions = [
-            'driver' => $options['driver'] ?? new InMemoryLockDriver(Lock::null())
+            'driver' => $options['driver'] ?? new InMemoryLockDriver(Lock::null()),
+            'maxAttempts' => $options['maxAttempts'] ?? 1,
         ];
 
-        return new LockGuard(
-            1,
+        $clock = new FrozenClock($this->now());
+
+        return new DefaultLockGuard(
+            $useOptions['maxAttempts'],
             0,
             $useOptions['driver'],
-            new DefaultLockInspector(new FrozenClock($this->now()))
+            new DefaultLockInspector($clock),
+            $clock
         );
     }
 
@@ -83,6 +89,7 @@ final class LockGuardTest extends TestCase
         $sut = $this->sut([
             'driver' => $driver,
         ]);
+
         $this->assertNotEquals(null, $driver->read()->toNative());
         $sut->releaseLock();
         $this->assertEquals(null, $driver->read()->toNative());
@@ -96,6 +103,7 @@ final class LockGuardTest extends TestCase
         ]);
         $lock = $this->nonExpiredLockByAlice();
         $didGainLock = $sut->gainLock($lock);
+
         $this->assertTrue($didGainLock);
         $this->assertEquals($lock, $driver->read());
     }
@@ -108,6 +116,7 @@ final class LockGuardTest extends TestCase
         ]);
         $lock = $this->nonExpiredLockByBob();
         $didGainLock = $sut->gainLock($lock);
+
         $this->assertTrue($didGainLock);
         $this->assertEquals($lock, $driver->read());
     }
@@ -120,6 +129,7 @@ final class LockGuardTest extends TestCase
         ]);
         $lock = $this->nonExpiredLockByAlice();
         $didGainLock = $sut->gainLock($lock);
+
         $this->assertTrue($didGainLock);
         $this->assertEquals($lock, $driver->read());
     }
@@ -133,38 +143,97 @@ final class LockGuardTest extends TestCase
         ]);
         $lock = $this->nonExpiredLockByBob();
         $didGainLock = $sut->gainLock($lock);
+
         $this->assertFalse($didGainLock);
         $this->assertEquals($initialLock, $driver->read());
     }
 
     public function test_it_gains_lock_then_executes_protected_callback_and_then_releases_lock_when_it_can_gain_lock()
     {
-        $flag = false;
+        $callbackGain = null;
+        $callbackFail = null;
+
         $lockUntil = $this->laterTime();
         $driver = new InMemoryLockDriver(Lock::null());
         $sut = $this->sut([
             'driver' => $driver,
+            'maxAttempts' => 3,
         ]);
-        $sut->protect('alice', $lockUntil, function () use (&$flag) {
-            $flag = true;
-        });
-        $this->assertTrue($flag);
-        $this->assertEquals(Lock::null(), $driver->read());
+        $sut->protect(
+            'alice',
+            $lockUntil,
+            function (LockGained $result) use (&$callbackGain) {
+                $callbackGain = $result;
+            },
+            function (LockFailed $result) use (&$callbackFail) {
+                $callbackFail = $result;
+            }
+        );
+
+        $this->assertEquals(new LockGained(1, 3, 0), $callbackGain);
+        $this->assertNull($callbackFail, 'Failure callback was called on success.');
+        $this->assertEquals(Lock::null(), $driver->read(), 'Lock not released.');
     }
 
     public function test_it_doesnt_gain_lock_and_doesnt_execute_protected_callback_when_it_cant_gain_lock()
     {
-        $flag = false;
+        $callbackGain = null;
+        $callbackFail = null;
+
         $lockUntil = $this->laterTime();
         $initialLock = $this->nonExpiredLockByBob();
         $driver = new InMemoryLockDriver($initialLock);
         $sut = $this->sut([
             'driver' => $driver,
+            'maxAttempts' => 7,
         ]);
-        $sut->protect('alice', $lockUntil, function () use (&$flag) {
-            $flag = true;
-        });
-        $this->assertFalse($flag);
-        $this->assertEquals($initialLock, $driver->read());
+
+        $sut->protect(
+            'alice',
+            $lockUntil,
+            function (LockGained $result) use (&$callbackGain) {
+                $callbackGain = $result;
+            },
+            function (LockFailed $result) use (&$callbackFail) {
+                $callbackFail = $result;
+            }
+        );
+
+        $this->assertEquals(new LockFailed(7, 0), $callbackFail);
+        $this->assertNull($callbackGain, 'Success callback was called on failure.');
+        $this->assertEquals($initialLock, $driver->read(), 'Lock was modified.');
+    }
+
+    public function test_callback_is_made_on_each_failed_attempt_to_get_a_lock()
+    {
+        $callbackAttempts = [];
+
+        $lockUntil = $this->laterTime();
+        $initialLock = $this->nonExpiredLockByAlice();
+        $driver = new InMemoryLockDriver($initialLock);
+        $sut = $this->sut([
+            'driver' => $driver,
+            'maxAttempts' => 5,
+        ]);
+
+        $sut->protect(
+            'bob',
+            $lockUntil,
+            function (LockGained $result) use (&$callbackGain) {
+            },
+            function (LockFailed $result) use (&$callbackFail) {
+            },
+            function (LockAttempt $result) use (&$callbackAttempts) {
+                $callbackAttempts[] = $result;
+            }
+        );
+
+        $this->assertEquals(4, count($callbackAttempts));
+        $this->assertEquals([
+            new LockAttempt(1, 5, 0, 0),
+            new LockAttempt(2, 5, 0, 0),
+            new LockAttempt(3, 5, 0, 0),
+            new LockAttempt(4, 5, 0, 0),
+        ], $callbackAttempts);
     }
 }
