@@ -12,9 +12,9 @@ interface LockGuard
     public function protect(
         string $actor,
         DateTimeInterface $until,
-        callable $onLockGained,
-        callable $onLockFailed,
-        callable $onAttempt
+        ?callable $onLockGained = null,
+        ?callable $onLockFailed = null,
+        ?callable $onAttempt = null
     ): void;
     public function gainLock(Lock $newLock): bool;
     public function releaseLock(): void;
