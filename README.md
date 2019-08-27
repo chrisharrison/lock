@@ -44,7 +44,7 @@ $uniqueProcessId = '<ANY-UNIQUE-STRING>';
 $lockUntil = DateTimeImmutable::createFromFormat('U', time()+300); // In 5 mins time
 
 $didExecute = $lockGuard->protect('uniq-process-id', $lockUnitl, function () use (&$flag) {
-  $flag = true
+  $flag = true;
 });
 ```
 
