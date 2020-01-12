@@ -19,6 +19,7 @@ final class DefaultLockSerialiserTest extends TestCase
         $time = (new DateTimeImmutable)->format(DATE_RFC3339);
 
         $native = [
+            'id' => '123',
             'actor' => 'alice',
             'until' => $time,
         ];
@@ -34,6 +35,7 @@ final class DefaultLockSerialiserTest extends TestCase
         $time = (new DateTimeImmutable)->format(DATE_RFC3339);
 
         $native = [
+            'id' => '145',
             'actor' => 'alice',
             'until' => $time,
         ];

@@ -36,6 +36,7 @@ final class DefaultLockGuard implements LockGuard
     }
 
     public function protect(
+        string $id,
         string $actor,
         DateTimeInterface $until,
         ?callable $onLockGained = null,
@@ -43,6 +44,7 @@ final class DefaultLockGuard implements LockGuard
         ?callable $onAttempt = null
     ): void {
         $newLock = Lock::fromNative([
+            'id' => $id,
             'actor' => $actor,
             'until' => $until->format(DATE_RFC3339),
         ]);
@@ -60,7 +62,7 @@ final class DefaultLockGuard implements LockGuard
                         $this->clock->now()->getTimestamp() - $startTime->getTimestamp()
                     ));
                 }
-                $this->releaseLock();
+                $this->releaseLock($newLock);
                 return;
             }
             if ($attempt === $this->maxAttempts) {
@@ -88,7 +90,7 @@ final class DefaultLockGuard implements LockGuard
 
     public function gainLock(Lock $newLock): bool
     {
-        $oldLock = $this->lockDriver->read();
+        $oldLock = $this->lockDriver->read($newLock->getId());
         if ($oldLock->isNull()) {
             return $this->lock($newLock);
         }
@@ -104,8 +106,8 @@ final class DefaultLockGuard implements LockGuard
         return $this->gainLock($lock);
     }
 
-    public function releaseLock(): void
+    public function releaseLock(Lock $lock): void
     {
-        $this->lockDriver->write(Lock::null());
+        $this->lockDriver->delete($lock->getId());
     }
 }
