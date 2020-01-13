@@ -21,6 +21,7 @@ final class DefaultLockInspectorTest extends TestCase
         $now = DateTimeImmutable::createFromFormat(DATE_RFC3339, '2010-01-01T10:00:01+00:00');
 
         $lock = Lock::fromNative([
+            'id' => '123',
             'actor' => 'alice',
             'until' => $lockTime->format(DATE_RFC3339),
         ]);
@@ -35,6 +36,7 @@ final class DefaultLockInspectorTest extends TestCase
         $now = DateTimeImmutable::createFromFormat(DATE_RFC3339, '2010-01-01T09:59:59+00:00');
 
         $lock = Lock::fromNative([
+            'id' => '123',
             'actor' => 'alice',
             'until' => $lockTime->format(DATE_RFC3339),
         ]);
@@ -46,6 +48,7 @@ final class DefaultLockInspectorTest extends TestCase
     public function test_wasLockedBy_returns_true_when_actor_is_the_same_as_the_one_in_the_lock()
     {
         $lock = Lock::fromNative([
+            'id' => '123',
             'actor' => 'alice',
             'until' => (new DateTimeImmutable)->format(DATE_RFC3339),
         ]);
@@ -57,6 +60,7 @@ final class DefaultLockInspectorTest extends TestCase
     public function test_wasLockedBy_returns_false_when_actor_isnt_the_same_as_the_one_in_the_lock()
     {
         $lock = Lock::fromNative([
+            'id' => '123',
             'actor' => 'alice',
             'until' => (new DateTimeImmutable)->format(DATE_RFC3339),
         ]);
