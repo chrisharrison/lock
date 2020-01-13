@@ -10,6 +10,7 @@ use DateTimeInterface;
 interface LockGuard
 {
     public function protect(
+        string $id,
         string $actor,
         DateTimeInterface $until,
         ?callable $onLockGained = null,
@@ -17,5 +18,5 @@ interface LockGuard
         ?callable $onAttempt = null
     ): void;
     public function gainLock(Lock $newLock): bool;
-    public function releaseLock(): void;
+    public function releaseLock(Lock $lock): void;
 }

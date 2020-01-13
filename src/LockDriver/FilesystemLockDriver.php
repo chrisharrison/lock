@@ -9,18 +9,18 @@ use ChrisHarrison\Lock\LockSerialiser\LockSerialiser;
 
 final class FilesystemLockDriver implements LockDriver
 {
-    private $lockPath;
+    private $lockPathPrefix;
     private $serialiser;
 
-    public function __construct(string $lockPath, LockSerialiser $serialiser)
+    public function __construct(string $lockPathPrefix, LockSerialiser $serialiser)
     {
-        $this->lockPath = $lockPath;
+        $this->lockPathPrefix = $lockPathPrefix;
         $this->serialiser = $serialiser;
     }
 
-    public function read(): Lock
+    public function read(string $id): Lock
     {
-        $file = file_get_contents($this->lockPath);
+        $file = file_get_contents($this->determineLockFilePath($id));
         if ($file === false) {
             return Lock::null();
         }
@@ -29,6 +29,19 @@ final class FilesystemLockDriver implements LockDriver
 
     public function write(Lock $lock): void
     {
-        file_put_contents($this->lockPath, $this->serialiser->serialise($lock));
+        file_put_contents(
+            $this->determineLockFilePath($lock->getId()),
+            $this->serialiser->serialise($lock)
+        );
+    }
+
+    public function delete(string $id): void
+    {
+        unlink($this->determineLockFilePath($id));
+    }
+
+    private function determineLockFilePath(string $id): string
+    {
+        return $this->lockPathPrefix . '/' . md5($id);
     }
 }

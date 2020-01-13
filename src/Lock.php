@@ -10,17 +10,25 @@ use DateTimeInterface;
 final class Lock
 {
     private $isNull;
+    private $id;
     private $actor;
     private $until;
 
     protected function __construct(
         bool $isNull,
+        ?string $id = null,
         ?string $actor = null,
         ?DateTimeInterface $until = null
     ) {
         $this->isNull = $isNull;
+        $this->id = $id;
         $this->actor = $actor;
         $this->until = $until;
+    }
+
+    public function getId(): ?string
+    {
+        return $this->id;
     }
 
     public function getActor(): ?string
@@ -50,6 +58,7 @@ final class Lock
         }
         return new self(
             false,
+            $native['id'],
             $native['actor'],
             DateTimeImmutable::createFromFormat(DATE_RFC3339, $native['until'])
         );
@@ -61,6 +70,7 @@ final class Lock
             return null;
         }
         return [
+            'id' => $this->id,
             'actor' => $this->actor,
             'until' => $this->until->format(DATE_RFC3339),
         ];

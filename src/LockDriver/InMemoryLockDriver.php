@@ -8,20 +8,20 @@ use ChrisHarrison\Lock\Lock;
 
 final class InMemoryLockDriver implements LockDriver
 {
-    private $lock;
+    private $locks;
 
-    public function __construct(Lock $initialLock)
+    public function read(string $id): Lock
     {
-        $this->lock = $initialLock;
-    }
-
-    public function read(): Lock
-    {
-        return $this->lock;
+        return ($this->locks[$id]) ?? Lock::null();
     }
 
     public function write(Lock $lock): void
     {
-        $this->lock = $lock;
+        $this->locks[$lock->getId()] = $lock;
+    }
+
+    public function delete(string $id): void
+    {
+        unset($this->locks[$id]);
     }
 }
